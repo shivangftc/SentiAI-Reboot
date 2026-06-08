@@ -19,7 +19,8 @@ if not ALPACA_KEY or not ALPACA_SECRET:
     raise ValueError("CRITICAL: ALPACA_KEY or ALPACA_SECRET environment variables are missing!")
 
 trading_client = TradingClient(ALPACA_KEY, ALPACA_SECRET, paper=True)
-TICKERS = ['TSLA', 'AAPL', 'NVDA', 'MSFT']
+# 🚀 Perfectly balanced for your free-tier limits:
+TICKERS = ['TSLA', 'AAPL', 'NVDA', 'MSFT', 'SPY', 'QQQ']
 
 # Track the last time Alpha Vantage was used
 last_av_run = 0 
