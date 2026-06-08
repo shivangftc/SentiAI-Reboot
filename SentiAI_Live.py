@@ -9,8 +9,8 @@ from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 
 # 1. SETUP
-ALPACA_KEY = os.getenv('APCA_API_KEY_ID')
-ALPACA_SECRET = os.getenv('APCA_API_SECRET_KEY')
+ALPACA_KEY = os.getenv('ALPACA_KEY')
+ALPACA_SECRET = os.getenv('APCA_SECRET')
 AV_API_KEY = os.getenv('AV_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 
