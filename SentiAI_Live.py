@@ -8,11 +8,15 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 
-# 1. SETUP
+# 1. SETUP - Fixed to match your Render Dashboard Environment Variables
 ALPACA_KEY = os.getenv('ALPACA_KEY')
-ALPACA_SECRET = os.getenv('APCA_SECRET')
+ALPACA_SECRET = os.getenv('ALPACA_SECRET')
 AV_API_KEY = os.getenv('AV_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
+
+# Crash prevention check
+if not ALPACA_KEY or not ALPACA_SECRET:
+    raise ValueError("CRITICAL: ALPACA_KEY or ALPACA_SECRET environment variables are missing!")
 
 trading_client = TradingClient(ALPACA_KEY, ALPACA_SECRET, paper=True)
 TICKERS = ['TSLA', 'AAPL', 'NVDA', 'MSFT']
@@ -23,11 +27,8 @@ AV_INTERVAL = 14400  # 4 Hours in seconds (to stay under 25/day limit)
 
 app = Flask(__name__)
 @app.route('/')
-def home(): return "SentiAI Hybrid Engine V3.0 Active"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+def home(): 
+    return "SentiAI Hybrid Engine V3.0 Active", 200
 
 # 2. THE TWO BRAINS
 def get_av_sentiment(ticker):
@@ -55,11 +56,10 @@ def get_newsapi_sentiment(ticker):
         return "NEUTRAL", 0.0
     except: return "NEUTRAL", 0.0
 
-# 3. HYBRID LOOP
-def main():
+# 3. HYBRID LOOP BACKGROUND TASK
+def trading_loop():
     global last_av_run
-    Thread(target=run_flask, daemon=True).start()
-    print("--- SentiAI Hybrid Active ---")
+    print("--- SentiAI Hybrid Trading Loop Started ---")
 
     while True:
         current_time = time.time()
@@ -91,4 +91,10 @@ def main():
         time.sleep(700)
 
 if __name__ == "__main__":
-    main()
+    # Start trading logic on a background thread so Flask can block the main thread
+    bot_thread = Thread(target=trading_loop, daemon=True)
+    bot_thread.start()
+    
+    # Run Flask directly on the main thread so Render detects the open port instantly
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
