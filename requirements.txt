@@ -1,0 +1,4 @@
+requests
+alpaca-py
+python-dotenv
+flask
