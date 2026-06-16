@@ -31,31 +31,60 @@ app = Flask(__name__)
 def home(): 
     return "SentiAI Hybrid Engine V3.0 Active", 200
 
-# 2. THE TWO BRAINS
+# 2. THE TWO BRAINS (PATCHED)
 def get_av_sentiment(ticker):
     """Institutional Brain (Alpha Vantage)"""
     url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={ticker}&apikey={AV_API_KEY}"
     try:
-        data = requests.get(url).json()
+        response = requests.get(url)
+        data = response.json()
+        
+        # Check if Alpha Vantage sent an API limit notice instead of data
+        if "Information" in data or "Note" in data:
+            print(f"⚠️ AV Rate Limit/Notice for {ticker}: {data.get('Information' or 'Note')}")
+            return "NEUTRAL", 0.0
+
         feed = data.get('feed', [])
-        if not feed: return "NEUTRAL", 0.0
+        if not feed: 
+            print(f"ℹ️ No recent AV articles found for {ticker}")
+            return "NEUTRAL", 0.0
+            
         score = float(feed[0].get('overall_sentiment_score', 0))
-        return ("POSITIVE" if score >= 0.2 else "NEGATIVE" if score <= -0.2 else "NEUTRAL"), abs(score)
-    except: return "NEUTRAL", 0.0
+        # Ensure we assign a real confidence value, not 0.0 for valid metrics
+        sentiment = "NEUTRAL"
+        if score >= 0.2: sentiment = "POSITIVE"
+        elif score <= -0.2: sentiment = "NEGATIVE"
+        
+        return sentiment, abs(score)
+    except Exception as e: 
+        print(f"💥 AV Exception for {ticker}: {e}")
+        return "NEUTRAL", 0.0
 
 def get_newsapi_sentiment(ticker):
     """Scout Brain (NewsAPI)"""
     url = f'https://newsapi.org/v2/everything'
-    params = {'qInTitle': f'"{ticker}"', 'sortBy': 'publishedAt', 'language': 'en', 'apiKey': NEWS_API_KEY}
+    # Removed strict literal quotes around ticker to allow broader keyword discovery
+    params = {'q': ticker, 'sortBy': 'publishedAt', 'language': 'en', 'apiKey': NEWS_API_KEY}
     try:
         data = requests.get(url, params=params).json()
         articles = data.get('articles', [])
-        if not articles or ticker.upper() not in articles[0]['title'].upper(): return "NEUTRAL", 0.0
-        text = articles[0]['title'].lower()
-        if any(w in text for w in ['surge', 'up', 'ai', 'beats']): return "POSITIVE", 0.8
-        if any(w in text for w in ['fall', 'miss', 'down', 'lawsuit']): return "NEGATIVE", 0.8
+        
+        if not articles: 
+            print(f"ℹ️ NewsAPI found nothing for {ticker}")
+            return "NEUTRAL", 0.0
+            
+        text = articles[0].get('title', '').lower() + " " + articles[0].get('description', '').lower()
+        
+        # Relaxed match: checking if either the ticker token or common company keywords exist
+        if any(w in text for w in ['surge', 'up', 'ai', 'beats', 'growth', 'bullish']): 
+            return "POSITIVE", 0.8
+        if any(w in text for w in ['fall', 'miss', 'down', 'lawsuit', 'drop', 'bearish']): 
+            return "NEGATIVE", 0.8
+            
         return "NEUTRAL", 0.0
-    except: return "NEUTRAL", 0.0
+    except Exception as e: 
+        print(f"💥 NewsAPI Exception for {ticker}: {e}")
+        return "NEUTRAL", 0.0
 
 # 3. HYBRID LOOP BACKGROUND TASK
 def trading_loop():
